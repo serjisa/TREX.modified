@@ -4,11 +4,11 @@
 
 TREX is an experimental workflow that enables simultaneous lineage TRacking and EXpression profiling of single cells using RNA-sequencing. The method is described in the paper [Clonal relations in the mouse brain revealed by single-cell and spatial transcriptomics](https://doi.org/10.1038/s41593-022-01011-x).
 
-An essential part of this workflow is presented here: the extraction of genetic barcodes or "cloneIDs" from single-cell or spatial transcriptomes and the reconstruction of related cells/spots.
+An essential part of this workflow is presented here: the extraction of genetic barcodes or "cloneIDs" from single-cell transcriptomes and the reconstruction of related cells.
 
 The tool uses BAM files of one or multiple sequencing libraries as an input for the generation of cloneID count matrices and identifies clonally related cells based on Jaccard similarity between each pair of cloneID+cells.
 
-Currently, TREX is compatible with common RNA-sequencing library preparation methods and data formats provided by 10X Chromium, 10X Visium, Smart-seq2 and 3.
+Currently, TREX is compatible with common RNA-sequencing library preparation methods and data formats provided by 10X Chromium and 10X Visium.
 
 
 # Installation
@@ -26,11 +26,6 @@ Activate the virtual environment by running
 `source trex-venv/bin/activate`.
 You need to repeat this step in every new shell in order to be able to run TREX.
 Finally, test the installation by running `trex --version`.
-
-
-# Changelog
-
-See [Changelog](CHANGES.md).
 
 
 # Running TREX on a minimal test dataset
@@ -131,17 +126,17 @@ Results will be written to a new directory named `trex_brain1_str`.
 
 # Running TREX
 
-The input directory for TREX must be a Cell Ranger output directory. In case of Smart-Seq2 / 3 data, one BAM file with all cells or a folder with one BAM file per cell is expected (see zUMIs output)
-See the contents of the `tests/data/` directory to learn which are the minimum files necessary.
-Cell Ranger/zUMIs must have been configured to map against a reference augmented by an extra chromosome that contains the cloneID. By default, that extra chromosome is assumed to be the last in the BAM file (use `--chromosome` to choose a different one).
+The input directory for TREX must be a Cell Ranger output directory.
+See the contents of the `tests/data/outs` directory to learn which are the minimum files necessary.
+Cell Ranger must have been configured to map against a reference augmented by an extra chromosome that contains the cloneID. By default, that extra chromosome is assumed to be the last in the BAM file (use `--chromosome` to choose a different one).
 The options `-s` and `-e` set where on the extra chromosome the cloneID is located (`-s` gives start and `-e` gives end in 1-based coordinates).
 
-Please also run `trex run10x --help` (or `trex smartseq2 --help` and `trex smartseq3 --help` respectively ) to see the other available command-line options.
+Please also run `trex run10x --help` to see the other available command-line options.
 
 
 ## Pipeline steps overview
 
-This is an overview of the steps that the `trex run10x`/ `trex smartseq3` command performs.
+This is an overview of the steps that the `trex run10x` command performs.
 
 1. Retrieve usable reads from the input BAM file.
    A usable read fulfills these requirements:
@@ -149,8 +144,7 @@ This is an overview of the steps that the `trex run10x`/ `trex smartseq3` comman
      `-e` flags or, if the flags are not given, to the region that
      has been automatically identified to be the region containing
      the variable cloneID sequence,
-   - it has both an associated cell ID and UMI (SAM tags `CB` and `UB`
-     in case of 10x data , SAM tags `BC` and `UB` in case of Smart-seq3 data),
+   - it has both an associated cell ID and UMI (SAM tags `CB` and `UB`),
    - its cell ID is included in the list of allowed cell IDs
      (if such a list is provided with `--filter-cellid` or `-f`).
 2. Group reads with identical cell ID and UMI into *molecules*.
@@ -161,59 +155,15 @@ This is an overview of the steps that the `trex run10x`/ `trex smartseq3` comman
    Rare cloneIDs also found in another cell are considered to be contaminants.
    CloneIDs supported by only a single read are removed.
 6. Cluster the cells into clones by creating a *clone graph*.
-   Edges are drawn between cells that appear to belong to the same clone
-   based on the set Jaccard index threshold.
+   Edges are drawn between cells that appear to belong to the same clone.
    The connected components of the graph are considered to be the clones.
    (A clone is thus simply a set of cells.)
 7. Error-correct the clone graph by removing spurious edges ("bridges").
 
-`trex smartseq2` follows a similar pipeline with the following differences:
-- A useable read does not require a UMI
-- Reads do not get grouped into molecules and their cloneIDs are not collapsed
-  and error-corrected into consensus sequences
-
-
-## Input parameters
-
-### Jaccard index threshold
-
-The Jaccard index measures the similarity of two sample sets, in this case
-the similarity of two sets of cloneIDs. It is calculated by dividing
-the number of overlapping, unique cloneIDs between cell A and B by the total
-number of unique cloneIDs in cell A and B. An index of 0.0 indicates no
-overlapping cloneIDs and an index of 1.0 a perfect match. The Jaccard
-threshold is the Jaccard index above which two cells are merged into one
-clone. It can be set with the `--jaccard-threshold` flag and is 0.7
-by default, meaning cell A and B are merged into one clone if they have more
-than 70% of cloneIDs in common.
-
-
-### Filter cellids
-
-Tab-separated file of cell IDs to keep in the TREX run. Adding this file via
-the `--filter-cellid` or `-f` option allows to focus the analysis on specific cells
-and to filter out low quality cells or doublets.
-Example:
-
-```
-0	CACTCGTGGTACACACTCCG
-1	CACTCGTGGTACCACAAGCA
-```
-
-## Filtering cloneIDs
-
-Text file with cloneIDs to ignore. The format is one cloneID per line.
-Adding this file via the `--filter-cloneids` option allows to ignore cloneIDs that have been identified as overrepresented or artefactual during library characterization.
-Example file:
-
-```
-GGTCTCCCTATACCAACAGTATCGTCTCAA
-GGGTTCTGGGATATTACGTTGACTTGAGAG
-```
 
 ## Output files
 
-TREX by default writes its results to a newly created directory
+`trex run10x` by default writes its results to a newly created directory
 named `trex_run`.
 The name of the output directory can be changed with `--output` (or `-o`).
 The files created in the output directory are described below.
@@ -227,9 +177,8 @@ or in comma-separated values (CSV) format.
 
 ### `log.txt`
 
-This file contains a copy of the output that a TREX run prints to the
+This file contains a copy of the output that `trex run10x` prints to the
 terminal.
-
 
 ### `entries.bam`
 
@@ -245,11 +194,6 @@ Example:
     #cell_id          umi         clone_id
     TGACGGCGTTACCAGT  AAAAAACTGT  TGTCAATCGTTCGGTTGAGCAAGATCTTAG
 
-- The character `0` in a cloneIDs signals a deleted base (CIGAR operation
-  `D` in the input BAM file).
-- If the read does not fully cover the cloneID region, the cloneID contains
-  the character `-` for each missing base.
-
 
 ### `molecules.txt`
 
@@ -258,12 +202,6 @@ Example:
 
     #cell_id                umi             clone_id
     AAACCTGAGAGGTACC        AGTTAAAGTA      TGTCAATCGTTCGGTTGAGCAAGATCTTAG
-
-
-### `molecules_filtered.txt`
-
-The same `molecules.txt`, but with those molecules removed that did not pass
-some filtering criteria (such as low-complexity cloneID filtering).
 
 
 ### `molecules_corrected.txt`
@@ -300,14 +238,6 @@ This is a different representation of the data written to `cells_filtered.txt`.
 Only created if option `--umi-matrix` is used.
 
 
-### `read_count_matrix.csv`
-
-Instead of UMI count matrix, running `trex smartseq2` produces matrix of read counts with cells as columns and cloneIDs as rows.
-This is a different representation of the data written to `cells_filtered.txt`.
-
-Only created if option `--read-matrix` is used.
-
-
 ### `components.txt`
 
 Connected components of the clone graph.
@@ -326,10 +256,6 @@ These are only created if option `--plot` is used.
 
 `graph_corrected.gv` and `graph.gv` are textual descriptions of the graphs in GraphViz format.
 
-### `doublets.txt`
-
-A list of the cell IDs of the cells that were detected to be doublets.
-
 
 ### `clones.txt`
 
@@ -337,18 +263,18 @@ A table listing the cell IDs belonging to each clone.
 The columns are *clone_id* and *cell_id* where *clone_id* is a number that
 identifies the clone.
 
-    clone#   cell_id
-    1        TGGCGCAAGAATAGGG
+    #clone_id,cell_id
+    1,TGGCGCAAGAATAGGG
 
 
 ### `clone_sequences.txt`
 
 A table listing the 30N sequence of each cloneID.
-The columns are *clone#* and *clone_seq* where *clone_id* is a number
+The columns are *clone_id* and *clone_seq* where *clone_id* is a number
 that identifies the clone and *clone_seq* its nucleotide sequence.
 
-    clone#  clone_seq
-    1       ACTAGGAGATTGACGGATCACCTTTGGTCG
+    #clone_id,clone_seq
+    1,ACTAGGAGATTGACGGATCACCTTTGGTCG
 
 
 ### `data.loom`
@@ -356,57 +282,3 @@ that identifies the clone and *clone_seq* its nucleotide sequence.
 A [loom file](http://linnarssonlab.org/loompy/).
 
 This file is created only if option `--loom` (or `-l`) is used.
-
-
-# Creating a quality control report
-
-```shell
-trex qc --plot-jaccard-matrix --plot-hamming-distance DIRECTORY
-```
-
-*qc* takes as an input the directory (or directories) of trex output.
-Plotting the jaccard similarity matrix between cells requires some time as jaccard similarity is calculated pairwise amongst all cells.
-This can be activated adding the optional flag `--plot-jaccard-matrix`.
-Hamming distance between all viral cloneIDs found in the dataset after each step can be plotted by means of the optional flag `--plot-hamming-distance`.
-
-This will add a PDF file named *quality_report.pdf* describing the quality of the TREX run inside the same folder with the TREX output.
-
-This report contains:
-
-### Overall results
-
-- Histogram of clone sizes
-- Histogram of how many unique cloneIDs can pe found in each clone
-- Histogram of how many unique cloneIDs can be found in each cell
-- *(Optional)* A histogram of the Jaccard similarity values between cells and a matrix of the Jaccard similarity between all cells.
-- Histogram of how many reads each detected viral cloneID molecule has.
-
-
-### Per step results
-
-Each of these plots has four subplots corresponding to different steps of the TREX pipeline.
-
-- Histograms of how many nucleotides have been read in each molecule
-- *(Optional)* Histograms of the Hamming distance between all the viral cloneIDs found
-- Histograms of how many viral cloneID molecules have been found in each cell
-- Histograms of how many molecules of each unique cloneID have been found in the dataset
-- Histograms of How many unique cloneIDs per cell have been found
-
-
-# TREX development
-
-It is highly recommended that you develop TREX within a separate virtual environment:
-
-    python3 -m venv --prompt trex .venv
-    source .venv/bin/activate
-
-Install TREX in "editable" mode:
-
-    pip install -e .
-
-Install `pre-commit` and install the pre-commit hooks
-(these run at `git commit` time and do some checks on
-the to-be-committed files):
-
-    pip install pre-commit
-    pre-commit install

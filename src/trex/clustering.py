@@ -4,19 +4,8 @@ from collections import defaultdict
 from .graph import Graph
 
 
-def kmers(s: str, k: int):
-    """
-    Yield all overlapping k-kmers of s.
-
-    >>> list(kmers('hello', 3))
-    ['hel', 'ell', 'llo']
-    """
-    for i in range(len(s) - k + 1):
-        yield s[i : i + k]
-
-
 def cluster_sequences(
-    sequences: List[str], is_similar: Callable[[str, str], bool], k: int = 6
+    sequences: List[str], is_similar: Callable[[str, str], bool]
 ) -> List[List[str]]:
     """
     Cluster sequences by Hamming distance.
@@ -32,24 +21,10 @@ def cluster_sequences(
     Each element of the returned list is a cluster.
     """
     graph = Graph(sequences)
-    if k >= 5:
-        shared_kmers = defaultdict(set)
-        for bc in sequences:
-            for kmer in kmers(bc, k):
-                shared_kmers[kmer].add(bc)
-
-        for bc in sequences:
-            others: Set[str] = set()
-            for kmer in kmers(bc, k):
-                others.update(shared_kmers[kmer])
-            for other in others:
-                if is_similar(bc, other):
-                    graph.add_edge(bc, other)
-    else:
-        for i, x in enumerate(sequences):
-            for j in range(i + 1, len(sequences)):
-                y = sequences[j]
-                assert len(x) == len(y)
-                if is_similar(x, y):
-                    graph.add_edge(x, y)
+    for i, x in enumerate(sequences):
+        for j in range(i + 1, len(sequences)):
+            y = sequences[j]
+            assert len(x) == len(y)
+            if is_similar(x, y):
+                graph.add_edge(x, y)
     return [g.nodes() for g in graph.connected_components()]
